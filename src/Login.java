@@ -66,9 +66,11 @@ public class Login extends Application {
         grid.add(textMin2, 4, 1);
         
         Button startBtn = new Button("开始");
+        Button cancleBtn = new Button("取消");;
         HBox startHbox = new HBox();
         startHbox.setAlignment(Pos.CENTER);
         startHbox.getChildren().add(startBtn);
+//        startHbox.getChildren().add(cancleBtn);
         grid.add(startHbox, 0, 2, 5, 1);
         
         Label tipsLabel = new Label();
@@ -91,9 +93,29 @@ public class Login extends Application {
 						tipsLabel.setText("请填写完整的关机时间！");
 						return;
 					}else{
-						tipsLabel.setText("电脑将于"+textHour1.getText()+":"+textMin1.getText()+"关闭！"+"取消请点取消按钮！");
+						boolean valiResult = validation(textHour1.getText(), "hour", tipsLabel);
+						if(valiResult){
+							valiResult= validation(textMin1.getText(), "min", tipsLabel);
+						}
+						if(valiResult){
+							numberValueHandle(textHour1,textMin1);
+							startHbox.getChildren().remove(startBtn);
+							startHbox.getChildren().add(cancleBtn);
+							tipsLabel.setText("电脑将于"+textHour1.getText()+":"+textMin1.getText()+"关闭！"+"取消请点取消按钮！");
+						}
 					}
 				}
+			}
+			
+		});
+		
+		cancleBtn.setOnAction(new EventHandler<ActionEvent>() {
+
+			@Override
+			public void handle(ActionEvent event) {
+				startHbox.getChildren().remove(cancleBtn);
+				startHbox.getChildren().add(startBtn);
+				tipsLabel.setText("");
 			}
 			
 		});
@@ -106,6 +128,46 @@ public class Login extends Application {
 
 	public static void main(String[] args) {
 		launch(args);
+	}
+	
+	public boolean validation(String valueStr,String code,Label tipsLabe){
+		int value = 0;
+		try{
+			value = Integer.valueOf(valueStr);
+		}catch(NumberFormatException e){
+			tipsLabe.setText("请输入正确的数字！");
+			return false;
+		}
+		if(code.equalsIgnoreCase("hour")){
+			if(value>24 || value<0){
+				tipsLabe.setText("请输入正确的时间值！");
+				return false;
+			}
+		}
+		if(code.equalsIgnoreCase("min")){
+			if(value>60 || value<0){
+				tipsLabe.setText("请输入正确的时间值！");
+				return false;
+			}
+		}
+		if(code.equalsIgnoreCase("clock")){
+			if(value>24 || value<0){
+				tipsLabe.setText("请输入正确的时间值！");
+				return false;
+			}
+		}
+		return true;
+	}
+	
+	public void numberValueHandle(TextField ...textFields){
+		if(textFields.length > 0){
+			for(TextField textField:textFields){
+				int value = Integer.valueOf(textField.getText());
+				if(value < 10){
+					textField.setText("0"+value);
+				}
+			}
+		}
 	}
 
 }
