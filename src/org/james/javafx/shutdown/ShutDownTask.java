@@ -18,7 +18,7 @@ public class ShutDownTask extends TimerTask {
 
 	@Override
 	public void run() {
-		
+		System.out.println("shutdown");
 	}
 	
 

@@ -1,8 +1,7 @@
 package org.james.javafx.shutdown;
+
 import java.util.Map;
 import java.util.Timer;
-import java.util.TimerTask;
-
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.application.Application;
@@ -18,7 +17,6 @@ import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleGroup;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
-import javafx.scene.text.Font;
 import javafx.stage.Stage;
 import javafx.util.Duration;
 
@@ -40,11 +38,12 @@ public class ShutdownApp extends Application {
 	private HBox tipsHbox;
 	private Timer shutdownTimer;
 	private long distTime = 0;
+	private ShutdownByTimeThread sdtt;
+	private Timeline timeline;
 
 	@Override
 	public void start(Stage primaryStage) {
 		primaryStage.setTitle("定时关机");
-		ShutdownByTimeThread sdtt = new ShutdownByTimeThread();
 		grid.setAlignment(Pos.CENTER);
 		grid.setHgap(10);
 		grid.setVgap(20);
@@ -77,7 +76,6 @@ public class ShutdownApp extends Application {
 
 		startHbox.setAlignment(Pos.CENTER);
 		startHbox.getChildren().add(startBtn);
-		// startHbox.getChildren().add(cancleBtn);
 		grid.add(startHbox, 0, 2, 6, 1);
 
 		tipsHbox.setAlignment(Pos.CENTER);
@@ -99,16 +97,13 @@ public class ShutdownApp extends Application {
 						tipsLabel.setText("请填写完整的关机时间!");
 						return;
 					} else {
-						boolean valiResult = validation(textHour1.getText(), "hour", tipsLabel);
-						if (valiResult) {
-							valiResult = validation(textMin1.getText(), "min", tipsLabel);
-						}
-						if (valiResult) {
+						boolean validateResult = validation();
+						if (validateResult){
 							numberValueHandle(textHour1, textMin1);
 							startHbox.getChildren().remove(startBtn);
 							startHbox.getChildren().add(cancleBtn);
-							disableTextFieldAndButton();
-							sdtt.setToggle(false);
+							disableProcess("all",true);
+							sdtt.setToggle(true);
 							sdtt.setHour(Integer.valueOf(textHour1.getText()));
 							sdtt.setMinutes(Integer.valueOf(textMin1.getText()));
 							new Thread(sdtt).start();
@@ -121,25 +116,15 @@ public class ShutdownApp extends Application {
 						tipsLabel.setText("请填写完整的时间!");
 						return;
 					} else {
-						boolean valiResult = validation(textHour2.getText(), "hour", tipsLabel);
-						if (valiResult) {
-							valiResult = validation(textMin2.getText(), "min", tipsLabel);
-						}
-						if (valiResult) {
+						boolean validateResult = validation();
+						if (validateResult){
 							numberValueHandle(textHour2, textMin2);
 							startHbox.getChildren().remove(startBtn);
 							startHbox.getChildren().add(cancleBtn);
-							disableTextFieldAndButton();
+							disableProcess("all",true);
 							distTime = Integer.valueOf(textHour2.getText()).intValue()*60*60*1000+
 									Integer.valueOf(textMin2.getText()).intValue()*60*1000;
 							shutdownTimer.schedule(new ShutDownTask(tipsLabel,distTime), distTime);
-//							while(distTime > 0){
-//								distTime = distTime-1000;
-//								Map<String, Long> countdownMap = DateTimeUtils.getCountdownMap(distTime);
-//								tipsLabel.setText("电脑将于" + countdownMap.get("hour") + "小时" + countdownMap.get("minutes") + "分钟"+countdownMap.get("seconds")+"秒后关闭！" + "取消请点取消按钮！");
-//							}
-							Timeline timeline = new Timeline(new KeyFrame(Duration.millis(500),
-									ae -> doSomething()));
 							timeline.setCycleCount(Timeline.INDEFINITE);
 							timeline.play();
 						}
@@ -153,10 +138,13 @@ public class ShutdownApp extends Application {
 
 			@Override
 			public void handle(ActionEvent event) {
+				timeline.stop();
 				startHbox.getChildren().remove(cancleBtn);
 				startHbox.getChildren().add(startBtn);
 				tipsLabel.setText("");
 				sdtt.setToggle(false);
+				shutdownTimer.cancel();
+				enableProcess("auto",true);
 			}
 
 		});
@@ -164,14 +152,18 @@ public class ShutdownApp extends Application {
 
 			@Override
 			public void handle(ActionEvent event) {
-				selectEvenHandler();
+				enableProcess("time",false);
+				disableProcess("clock",false);
+				cleanTextProcess("clock");
 			}
 		});
 		shutDownByClockRbtn.setOnAction(new EventHandler<ActionEvent>() {
 
 			@Override
 			public void handle(ActionEvent event) {
-				selectEvenHandler();
+				enableProcess("clock",false);
+				disableProcess("time",false);
+				cleanTextProcess("time");
 			}
 		});
 
@@ -181,34 +173,37 @@ public class ShutdownApp extends Application {
 	}
 	
 	public void doSomething(){
-		System.out.println("doSomething");
+		if(distTime > 0){
+			distTime = distTime-1000;
+			Map<String,Long> countdownMap = DateTimeUtils.getCountdownMap(distTime);
+			tipsLabel.setText("电脑将于"+countdownMap.get("hour")+"小时"+countdownMap.get("minutes")+"分钟"
+								+countdownMap.get("seconds")+"秒后关闭。如需取消请点取消按钮。");		
+		}
 	}
 
-	public boolean validation(String valueStr, String code, Label tipsLabe) {
-		int value = 0;
+	private boolean validation() {
+		int hour = 0;
+		int minute = 0;
 		try {
-			value = Integer.valueOf(valueStr);
+			if(shutDownByClockRbtn.isSelected()){
+				hour = Integer.valueOf(textHour2.getText());
+				minute = Integer.valueOf(textMin2.getText());
+			}
+			if(shutDownByTimeRbtn.isSelected()){
+				hour = Integer.valueOf(textHour1.getText());
+				minute = Integer.valueOf(textMin1.getText());
+			}
 		} catch (NumberFormatException e) {
-			tipsLabe.setText("请输入正确的数字！");
+			tipsLabel.setText("请输入正确的数字！");
 			return false;
 		}
-		if (code.equalsIgnoreCase("hour")) {
-			if (value > 24 || value < 0) {
-				tipsLabe.setText("请输入正确的时间值！");
-				return false;
-			}
+		if (hour > 24 || hour < 0) {
+			tipsLabel.setText("请输入正确的时间值！");
+			return false;
 		}
-		if (code.equalsIgnoreCase("min")) {
-			if (value > 60 || value < 0) {
-				tipsLabe.setText("请输入正确的时间值！");
-				return false;
-			}
-		}
-		if (code.equalsIgnoreCase("clock")) {
-			if (value > 24 || value < 0) {
-				tipsLabe.setText("请输入正确的时间值！");
-				return false;
-			}
+		if (minute > 60 || minute < 0) {
+			tipsLabel.setText("请输入正确的时间值！");
+			return false;
 		}
 		return true;
 	}
@@ -224,36 +219,82 @@ public class ShutdownApp extends Application {
 		}
 	}
 	
-	private void disableTextFieldAndButton(){
-		textHour1.setDisable(true);
-		textMin1.setDisable(true);
-		textHour2.setDisable(true);
-		textMin2.setDisable(true);
-		shutDownByClockRbtn.setDisable(true);
-		shutDownByTimeRbtn.setDisable(true);
-	}
-	
-	private void selectEvenHandler(){
-		if(shutDownByTimeRbtn.isSelected()){
-			textHour1.setDisable(false);
-			textMin1.setDisable(false);
-			textHour2.setText("");
-			textMin2.setText("");
-			textHour2.setDisable(true);
-			textMin2.setDisable(true);
-		}
-		if(shutDownByClockRbtn.isSelected()){
-			textHour1.setText("");
-			textMin1.setText("");
+	private void disableProcess(String code,boolean isIncludeRadioBtn){
+		if(code.equalsIgnoreCase("time")){
 			textHour1.setDisable(true);
 			textMin1.setDisable(true);
+			if(isIncludeRadioBtn){
+				shutDownByTimeRbtn.setDisable(true);
+			}
+		}
+		if(code.equalsIgnoreCase("clock")){
+			textHour2.setDisable(true);
+			textMin2.setDisable(true);
+			if(isIncludeRadioBtn){
+				shutDownByClockRbtn.setDisable(true);
+			}
+		}
+		if(code.equalsIgnoreCase("all")){
+			textHour1.setDisable(true);
+			textMin1.setDisable(true);
+			textHour2.setDisable(true);
+			textMin2.setDisable(true);
+			if(isIncludeRadioBtn){
+				shutDownByTimeRbtn.setDisable(true);
+				shutDownByClockRbtn.setDisable(true);
+			}
+		}
+		
+	}
+	
+	private void enableProcess(String code,boolean isIncludeRadioBtn){
+		if(code.equalsIgnoreCase("time")){
+			textHour1.setDisable(false);
+			textMin1.setDisable(false);
+			if(isIncludeRadioBtn){
+				shutDownByTimeRbtn.setDisable(false);
+			}
+		}
+		if(code.equalsIgnoreCase("clock")){
 			textHour2.setDisable(false);
 			textMin2.setDisable(false);
+			if(isIncludeRadioBtn){
+				shutDownByClockRbtn.setDisable(false);
+			}
 		}
+		if(code.equalsIgnoreCase("auto")){
+			if(shutDownByTimeRbtn.isSelected()){
+				enableProcess("time",isIncludeRadioBtn);
+			}
+			if(shutDownByClockRbtn.isSelected()){
+				enableProcess("clock",isIncludeRadioBtn);
+			}
+			shutDownByClockRbtn.setDisable(false);
+			shutDownByTimeRbtn.setDisable(false);
+		}
+		if(code.equalsIgnoreCase("all")){
+			enableProcess("time",isIncludeRadioBtn);
+			enableProcess("clock",isIncludeRadioBtn);
+		}
+		
 	}
-
-	public static void main(String[] args) {
-		launch(args);
+	
+	private void cleanTextProcess(String code){
+		if(code.equalsIgnoreCase("time")){
+			textHour1.setText("");
+			textMin1.setText("");
+		}
+		if(code.equalsIgnoreCase("clock")){
+			textHour2.setText("");
+			textMin2.setText("");
+		}
+		if(code.equalsIgnoreCase("all")){
+			textHour1.setText("");
+			textMin1.setText("");
+			textHour2.setText("");
+			textMin2.setText("");
+		}
+		
 	}
 
 	@Override
@@ -280,12 +321,19 @@ public class ShutdownApp extends Application {
 		textHour1.setDisable(true);
 		textMin1.setDisable(true);
 		shutdownTimer = new Timer();
+		sdtt = new ShutdownByTimeThread();
+		timeline = new Timeline(new KeyFrame(Duration.millis(1000),args -> doSomething()));
 	}
 
 	@Override
 	public void stop() throws Exception {
 		super.stop();
 		shutdownTimer.cancel();
+		sdtt.setToggle(false);
+	}
+	
+	public static void main(String[] args) {
+		launch(args);
 	}
 	
 }

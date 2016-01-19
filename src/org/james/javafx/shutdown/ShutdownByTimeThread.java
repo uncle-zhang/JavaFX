@@ -24,8 +24,8 @@ public class ShutdownByTimeThread implements Runnable {
 			Calendar ca = Calendar.getInstance();
 			int hourNum = ca.get(Calendar.HOUR_OF_DAY);
 			int minutesNum = ca.get(Calendar.MINUTE);
-			System.out.println(hourNum);
 			if(hourNum == hour && minutesNum == minutes){
+				System.out.println("shutdown");
 				setToggle(false);
 			}
 			try {
